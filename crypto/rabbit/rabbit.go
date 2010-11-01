@@ -40,6 +40,7 @@ import (
 type Cipher struct {
 	x, c, cx, cc [8]uint32
 	carry, ccarry bool
+	r []byte
 }
 
 type KeySizeError struct {
@@ -214,15 +215,55 @@ func (c *Cipher) SetupIV(iv []byte) os.Error {
 
 // ProcessStream will encrypt or decrypt given buffer.
 func (c *Cipher) ProcessStream(buf []byte) {
-	var b [16]byte
 	l := len(buf)
-	for i := 0; ; {
-		c.rabbitGen(&b)
-		for j := 0; j < 16; j++ {
-			buf[i] ^= b[j]
-			i += 1
-			if i >= l {
-				return
+	i := 0
+	if m := len(c.r); m > 0 {
+		for ; i < m && i < l; i++ {
+			buf[i] ^= c.r[i]
+		}
+		c.r = nil
+	}
+	for i < l {
+		c.rabbitNext()
+
+		if n := l - i; n >= 16 {
+			o0 := c.x[0] ^ (c.x[5]>>16 ^ c.x[3]<<16)
+			o1 := c.x[2] ^ (c.x[7]>>16 ^ c.x[5]<<16)
+			o2 := c.x[4] ^ (c.x[1]>>16 ^ c.x[7]<<16)
+			o3 := c.x[6] ^ (c.x[3]>>16 ^ c.x[1]<<16)
+			buf[i + 0] ^= byte(o0     )
+			buf[i + 1] ^= byte(o0 >> 8)
+			buf[i + 2] ^= byte(o0 >>16)
+			buf[i + 3] ^= byte(o0 >>24)
+			buf[i + 4] ^= byte(o1     )
+			buf[i + 5] ^= byte(o1 >> 8)
+			buf[i + 6] ^= byte(o1 >>16)
+			buf[i + 7] ^= byte(o1 >>24)
+			buf[i + 8] ^= byte(o2     )
+			buf[i + 9] ^= byte(o2 >> 8)
+			buf[i +10] ^= byte(o2 >>16)
+			buf[i +11] ^= byte(o2 >>24)
+			buf[i +12] ^= byte(o3     )
+			buf[i +13] ^= byte(o3 >> 8)
+			buf[i +14] ^= byte(o3 >>16)
+			buf[i +15] ^= byte(o3 >>24)
+			i += 16
+		} else {
+			for b, j, z, f := buf, 0, c.x[0] ^ (c.x[5]>>16 ^ c.x[3]<<16), false; j < 4; j++ {
+				for k := uint32(0); k < 4; k++ {
+					b[i] ^= byte(z>>(k*8))
+					if i++; f == false && i >= l {
+						l = (3 - j)*4 + (3 - int(k))
+						if l == 0 { return }
+						c.r = make([]byte, l)
+						b, i, f = c.r, 0, true
+					}
+				}
+				switch(j) {
+				case  0: z = c.x[2] ^ (c.x[7]>>16 ^ c.x[5]<<16)
+				case  1: z = c.x[4] ^ (c.x[1]>>16 ^ c.x[7]<<16)
+				case  2: z = c.x[6] ^ (c.x[3]>>16 ^ c.x[1]<<16)
+				}
 			}
 		}
 	}

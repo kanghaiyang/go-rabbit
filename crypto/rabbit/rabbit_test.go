@@ -4671,7 +4671,12 @@ func TestCipher(t *testing.T) {
 			t.Errorf("testVectors [%d]: Encrypt: Failed to setup Initialization vector", i)
 			return
 		}
-		c.ProcessStream(b0)
+		for j, k, l, m := 0, 0, 16, r.zero; k < m; j++ {
+			l += j
+			if k + l > m { l = m - k }
+			c.ProcessStream(b0[k:k+l])
+			k += l
+		}
 		for j, v := range r.stream {
 			b := b0[v.start:]
 			for k := 0; k < v.len; k++ {
@@ -4699,7 +4704,12 @@ func TestCipher(t *testing.T) {
 			t.Errorf("testVectors [%d]: Decrypt: Failed to setup Initialization vector", i)
 			return
 		}
-		c2.ProcessStream(b0)
+		for j, k, l, m := 0, 0, 16, r.zero; k < m; j++ {
+			l += j
+			if k + l > m { l = m - k }
+			c2.ProcessStream(b0[k:k+l])
+			k += l
+		}
 		for j, v := range b0 {
 			if v != 0 {
 				t.Errorf("testVectors [%d]: Decrypt: Stream test failed, out[%d] = %#x, want %#x", i, j, v, 0)
