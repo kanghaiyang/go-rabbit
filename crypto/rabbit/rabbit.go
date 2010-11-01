@@ -228,6 +228,17 @@ func (c *Cipher) ProcessStream(buf []byte) {
 	}
 }
 
+// ResetCipher reset cipher round to original state. Initialization vector will be erased.
+func (c *Cipher) ResetCipher() {
+	for i := range c.c {
+		c.c[i] = c.cc[i]
+	}
+	for i := range c.x {
+		c.x[i] = c.cx[i]
+	}
+	c.carry = c.ccarry
+}
+
 // Reset zeros the key data so that it will no longer appear in the
 // process's memory.
 func (c *Cipher) Reset() {
