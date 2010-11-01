@@ -228,22 +228,6 @@ func (c *Cipher) ProcessStream(buf []byte) {
 	}
 }
 
-// GenerateRandom will generate Pseudo-Random data to given buffer.
-func (c *Cipher) GenerateRandom(buf []byte) {
-	var b [16]byte
-	l := len(buf)
-	for i := 0; ; {
-		c.rabbitGen(&b)
-		for j := 0; j < 16; j++ {
-			buf[i] = b[j]
-			i += 1
-			if i >= l {
-				return
-			}
-		}
-	}
-}
-
 // Reset zeros the key data so that it will no longer appear in the
 // process's memory.
 func (c *Cipher) Reset() {
