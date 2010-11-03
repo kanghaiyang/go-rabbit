@@ -43,18 +43,16 @@ type Cipher struct {
 	r []byte
 }
 
-type KeySizeError struct {
-	t, sz int
+type KeySizeError int
+
+func (k KeySizeError) String() string {
+	return "crypto/rabbit: invalid key size " + strconv.Itoa(int(k))
 }
 
-func (k *KeySizeError) String() string {
-	switch(k.t) {
-	case 1:
-		return "crypto/rabbit: invalid key size " + strconv.Itoa(int(k.sz))
-	case 2:
-		return "crypto/rabbit: invalid iv size " + strconv.Itoa(int(k.sz))
-	}
-	return "crypto/rabbit: unknown key error type"
+type IVSizeError int
+
+func (k IVSizeError) String() string {
+	return "crypto/rabbit: invalid iv size " + strconv.Itoa(int(k))
 }
 
 func rotl(v, n uint32) uint32 {
@@ -113,25 +111,12 @@ func (c *Cipher) rabbitNext() {
 	c.c[4], c.c[5], c.c[6], c.c[7] = c4, c5, c6, c7
 }
 
-func (c *Cipher) rabbitGen(buf *[16]byte) {
-	c.rabbitNext()
-	var d0, d1, d2, d3 uint32
-	d0 = c.x[0] ^ (c.x[5]>>16 ^ c.x[3]<<16)
-	d1 = c.x[2] ^ (c.x[7]>>16 ^ c.x[5]<<16)
-	d2 = c.x[4] ^ (c.x[1]>>16 ^ c.x[7]<<16)
-	d3 = c.x[6] ^ (c.x[3]>>16 ^ c.x[1]<<16)
-	buf[ 0], buf[ 1], buf[ 2], buf[ 3] = byte(d0), byte(d0>>8), byte(d0>>16), byte(d0>>24)
-	buf[ 4], buf[ 5], buf[ 6], buf[ 7] = byte(d1), byte(d1>>8), byte(d1>>16), byte(d1>>24)
-	buf[ 8], buf[ 9], buf[10], buf[11] = byte(d2), byte(d2>>8), byte(d2>>16), byte(d2>>24)
-	buf[12], buf[13], buf[14], buf[15] = byte(d3), byte(d3>>8), byte(d3>>16), byte(d3>>24)
-}
-
 // NewCipher creates and returns a Cipher.
 // Rabbit key, must be 16 bytes.
 func NewCipher(key []byte) (*Cipher, os.Error) {
 	k := len(key)
 	if k != 16 {
-		return nil, &KeySizeError{1, k}
+		return nil, KeySizeError(k)
 	}
 	var c Cipher
 
@@ -183,7 +168,7 @@ func NewCipher(key []byte) (*Cipher, os.Error) {
 func (c *Cipher) SetupIV(iv []byte) os.Error {
 	k := len(iv)
 	if k != 8 {
-		return &KeySizeError{2, k}
+		return IVSizeError(k)
 	}
 
 	var d0, d1, d2, d3 uint32
@@ -205,6 +190,7 @@ func (c *Cipher) SetupIV(iv []byte) os.Error {
 		c.x[i] = c.cx[i]
 	}
 	c.carry = c.ccarry
+	c.r = nil
 
 	for i := 0; i < 4; i++ {
 		c.rabbitNext()
@@ -278,6 +264,7 @@ func (c *Cipher) ResetCipher() {
 		c.x[i] = c.cx[i]
 	}
 	c.carry = c.ccarry
+	c.r = nil
 }
 
 // Reset zeros the key data so that it will no longer appear in the
